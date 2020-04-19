@@ -1,0 +1,73 @@
+version: '2'
+services:
+  nginx:
+    build:
+      context: ./
+      dockerfile: website/Dockerfile
+    ports:
+      - 8080:80
+    volumes:
+      - ./website/data:/website
+    links:
+      - php
+      
+  php:
+    build:
+      context: ./
+      dockerfile: php-fpm/Dockerfile-testing
+    ports:
+      - 9000:9000
+    volumes:
+      - ./website/data:/website
+    links:
+      - postgres
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgres://user@postgres/mydb
+    container_name: php
+    environment:
+      XDEBUG_CONFIG: remote_host=host.docker.internal remote_port=9001 remote_enable=1
+
+  postgres:
+    image: postgres:12-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_DB: mydb
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - 5432:5432
+    volumes:
+      - ./db/data-testing:/var/lib/postgresql
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user
+      PGADMIN_DEFAULT_PASSWORD: password
+    ports:
+      - "8081:80"
+    links:
+      - postgres
+    volumes:
+      - ./db_admin/data-testing:/var/lib/pgadmin
+  
+  selenium:
+    image: selenium/hub:3.141.59-xenon
+    ports:
+      - "4444:4444"
+    container_name: selenium
+    links:
+      - nginx
+
+  chrome:
+    image: selenium/node-chrome:3.141.59-xenon
+    environment:
+      HUB_HOST: selenium
+    depends_on:
+      - selenium
+    volumes:
+      - /dev/shm:/dev/shm
+    container_name: selenium-chrome
+    links:
+      - nginx
